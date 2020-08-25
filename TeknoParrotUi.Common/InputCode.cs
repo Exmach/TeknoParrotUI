@@ -21,7 +21,13 @@ namespace TeknoParrotUi.Common
         Left,
         Right,
         Up,
-        Down
+        Down,
+        FFLeft,
+        FFRight,
+        FFUp,
+        FFDown,
+        FFHoriCenter,
+        FFVertCenter
     }
 
     public class PokkenButtons
@@ -172,6 +178,22 @@ namespace TeknoParrotUi.Common
         public bool DownPressed()
         {
             return Down.HasValue && Down.Value;
+        }
+        public bool FFLeftPressed()
+        {
+            return Button3.HasValue && Button3.Value;
+        }
+        public bool FFRightPressed()
+        {
+            return Button4.HasValue && Button4.Value;
+        }
+        public bool FFUpPressed()
+        {
+            return Button1.HasValue && Button1.Value;
+        }
+        public bool FFDownPressed()
+        {
+            return Button2.HasValue && Button2.Value;
         }
         private bool? _up;
         private bool? _down;
@@ -435,6 +457,30 @@ namespace TeknoParrotUi.Common
                     playerButtons.Left = false;
                     playerButtons.Right = true;
                     break;
+                case Direction.FFUp:
+                    playerButtons.Button1 = true;
+                    playerButtons.Button2 = false;
+                    break;
+                case Direction.FFDown:
+                    playerButtons.Button1 = false;
+                    playerButtons.Button2 = true;
+                    break;
+                case Direction.FFHoriCenter:
+                    playerButtons.Button3 = false;
+                    playerButtons.Button4 = false;
+                    break;
+                case Direction.FFVertCenter:
+                    playerButtons.Button1 = false;
+                    playerButtons.Button2 = false;
+                    break;
+                case Direction.FFLeft:
+                    playerButtons.Button3 = true;
+                    playerButtons.Button4 = false;
+                    break;
+                case Direction.FFRight:
+                    playerButtons.Button3 = false;
+                    playerButtons.Button4 = true;
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }
@@ -467,6 +513,18 @@ namespace TeknoParrotUi.Common
                 case Direction.Right:
                     pokkenButtons.Left = false;
                     pokkenButtons.Right = true;
+                    break;
+                case Direction.FFDown:
+                    break;
+                case Direction.FFUp:
+                    break;
+                case Direction.FFLeft:
+                    break;
+                case Direction.FFRight:
+                    break;
+                case Direction.FFVertCenter:
+                    break;
+                case Direction.FFHoriCenter:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
