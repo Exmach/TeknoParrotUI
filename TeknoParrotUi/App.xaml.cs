@@ -1,11 +1,16 @@
-﻿using System;
+﻿using MaterialDesignColors;
+using MaterialDesignThemes.Wpf;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
 using TeknoParrotUi.Common;
-
+using TeknoParrotUi.Helpers;
 
 namespace TeknoParrotUi
 {
@@ -15,7 +20,7 @@ namespace TeknoParrotUi
     public partial class App
     {
         private GameProfile _profile;
-        private bool _emuOnly, _test;
+        private bool _emuOnly, _test, _tpOnline, _startMin;
         private bool _profileLaunch;
 
         private void TerminateProcesses()
@@ -33,6 +38,15 @@ namespace TeknoParrotUi
         private bool HandleArgs(string[] args)
         {
             _test = args.Any(x => x == "--test");
+            if (args.Contains("--tponline"))
+            {
+                _tpOnline = true;
+            }
+
+            if (args.Contains("--startMinimized"))
+            {
+                _startMin = true;
+            }
             if (args.Any(x => x.StartsWith("--profile=")) && args.All(x => x != "--emuonly"))
             {
                 // Run game + emu
@@ -42,7 +56,7 @@ namespace TeknoParrotUi
                 _profileLaunch = true;
                 if (string.IsNullOrWhiteSpace(_profile.GamePath))
                 {
-                    MessageBox.Show("You have not set game directory for this game!");
+                    MessageBoxHelper.ErrorOK(TeknoParrotUi.Properties.Resources.ErrorGamePathNotSet);
                     return false;
                 }
 
@@ -89,25 +103,74 @@ namespace TeknoParrotUi
             }
         }
 
+        static PaletteHelper ph = new PaletteHelper();
+        static SwatchesProvider sp = new SwatchesProvider();
+        static string GetResourceString(string input)
+        {
+            return $"pack://application:,,,/{input}";
+        }
+
+        public static void LoadTheme(string colourname, bool darkmode, bool holiday)
+        {
+            // if user isn't patreon, use defaults
+            if (!IsPatreon())
+            {
+                colourname = "lightblue";
+
+                if (holiday)
+                {
+                    var now = DateTime.Now;
+
+                    if (now.Month == 10 && now.Day == 31)
+                    {
+                        // halloween - orange title
+                        colourname = "orange";
+                    }
+
+                    if (now.Month == 12 && now.Day == 25)
+                    {
+                        // christmas - red title
+                        colourname = "red";
+                    } 
+                }
+            }
+
+            Debug.WriteLine($"UI colour: {colourname} | Dark mode: {darkmode}");
+
+            ph.SetLightDark(darkmode);
+            var colour = sp.Swatches.FirstOrDefault(a => a.Name == colourname);
+            if (colour != null)
+            {
+                ph.ReplacePrimaryColor(colour);
+            }     
+        }
+
+        public static bool IsPatreon()
+        {
+            var tp = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\TeknoGods\TeknoParrot");
+            return (tp != null && tp.GetValue("PatreonSerialKey") != null);
+        }
+
         private void Application_Startup(object sender, StartupEventArgs e)
         {
-            if (SingleApplicationDetector.IsRunning())
+            // Localization testing without changing system language.
+            // Language code list: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-lcid/70feba9f-294e-491e-b6eb-56532684c37f
+            //System.Threading.Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("fr-FR");
+            
+            //this'll sort dumb stupid tp online gay shit
+            HandleArgs(e.Args);
+            if (!_tpOnline)
             {
-                if ((e.Args.Any(x => x.StartsWith("--profile=")) && e.Args.All(x => x != "--emuonly")) || (e.Args.Any(x => x.StartsWith("--profile=")) && e.Args.Any(x => x == "--emuonly")))
+                if (Process.GetProcessesByName("TeknoParrotUi").Where((p) => p.Id != Process.GetCurrentProcess().Id)
+                    .Count() > 0)
                 {
-                    
-                }
-                else
-                {
-                    if (MessageBox.Show(
-                            "TeknoParrot UI seems to already be running, want me to close it?", "Error",
-                            MessageBoxButton.YesNo, MessageBoxImage.Error) == MessageBoxResult.Yes)
+                    if (MessageBoxHelper.ErrorYesNo(TeknoParrotUi.Properties.Resources.ErrorAlreadyRunning))
                     {
                         TerminateProcesses();
                     }
                     else
                     {
-                        Application.Current.Shutdown(0);
+                        Current.Shutdown(0);
                         return;
                     }
                 }
@@ -115,10 +178,8 @@ namespace TeknoParrotUi
 
             if (File.Exists("DumbJVSManager.exe"))
             {
-                MessageBox.Show(
-                    "Seems you have extracted me to directory of old TeknoParrot, please extract me to a new directory instead!",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                Application.Current.Shutdown(0);
+                MessageBoxHelper.ErrorOK(TeknoParrotUi.Properties.Resources.ErrorOldTeknoParrotDirectory);
+                Current.Shutdown(0);
                 return;
             }
 
@@ -154,6 +215,29 @@ namespace TeknoParrotUi
 
             JoystickHelper.DeSerialize();
 
+            Current.Resources.MergedDictionaries.Clear();
+            Current.Resources.MergedDictionaries.Add(new ResourceDictionary()
+            {
+                Source = new Uri(GetResourceString($"MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Light.xaml"))
+            });
+            Current.Resources.MergedDictionaries.Add(new ResourceDictionary()
+            {
+                Source = new Uri(GetResourceString("MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml"))
+            });
+            Current.Resources.MergedDictionaries.Add(new ResourceDictionary()
+            {
+                Source = new Uri(GetResourceString($"MaterialDesignColors;component/Themes/Recommended/Primary/MaterialDesignColor.LightBlue.xaml"))
+            });
+            Current.Resources.MergedDictionaries.Add(new ResourceDictionary()
+            {
+                Source = new Uri(GetResourceString("MaterialDesignColors;component/Themes/Recommended/Accent/MaterialDesignColor.Lime.xaml"))
+            });
+
+            LoadTheme(Lazydata.ParrotData.UiColour, Lazydata.ParrotData.UiDarkMode, Lazydata.ParrotData.UiHolidayThemes);
+
+            if (Lazydata.ParrotData.UiDisableHardwareAcceleration)
+                RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
+
             ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
@@ -163,15 +247,21 @@ namespace TeknoParrotUi
                 if (HandleArgs(e.Args) && Views.Library.ValidateAndRun(_profile, out var loader, out var dll, _emuOnly))
                 {
                     var gamerunning = new Views.GameRunning(_profile, loader, dll, _test, _emuOnly, _profileLaunch);
-
                     // Args ok, let's do stuff
                     var window = new Window
                     {
+                        //fuck you nezarn no more resizing smh /s
                         Title = "GameRunning",
                         Content = gamerunning,
                         MaxWidth = 800,
+                        MinWidth = 800,
                         MaxHeight = 800,
+                        MinHeight = 800,
                     };
+                    if (_startMin)
+                    {
+                        window.WindowState = WindowState.Minimized;
+                    }
 
                     //             d:DesignHeight="800" d:DesignWidth="800" Loaded="GameRunning_OnLoaded" Unloaded="GameRunning_OnUnloaded">
                     window.Dispatcher.ShutdownStarted += (x, x2) => gamerunning.GameRunning_OnUnloaded(null, null);
@@ -181,7 +271,6 @@ namespace TeknoParrotUi
                     return;
                 }
             }
-
             DiscordRPC.StartOrShutdown();
 
             StartApp();

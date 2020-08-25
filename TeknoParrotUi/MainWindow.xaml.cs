@@ -1,9 +1,12 @@
-﻿using Microsoft.Win32;
+﻿using MaterialDesignColors;
+using MaterialDesignThemes.Wpf;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
@@ -11,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using TeknoParrotUi.Common;
@@ -41,6 +45,31 @@ namespace TeknoParrotUi
             contentControl.Content = _library;
             versionText.Text = GameVersion.CurrentVersion;
             Title = "TeknoParrot UI " + GameVersion.CurrentVersion;
+
+            SaveCompleteSnackbar.VerticalAlignment = VerticalAlignment.Top;
+            SaveCompleteSnackbar.HorizontalContentAlignment = HorizontalAlignment.Center;
+            // 2 seconds
+            SaveCompleteSnackbar.MessageQueue = new SnackbarMessageQueue(TimeSpan.FromMilliseconds(2000));
+        }
+
+        //this is a WIP, not working yet
+        public void redistCheck()
+        {
+            if (MessageBox.Show("It appears that this is your first time starting TeknoParrot, it is highly recommended that you install all the Visual C++ Runtimes for the highest compatibility with games. If you would like TeknoParrot to download and install them for you, click Yes, otherwise click No. If you're not sure if you have them all installed, click Yes.", "Missing redistributables", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.No)
+            {
+                Debug.WriteLine("user chose no, not gonna download them");
+            }
+            else
+            {
+                Debug.WriteLine("user chose yes, AAAAAAAAAA");
+
+
+            }
+        }
+
+        public void ShowMessage(string message)
+        {
+            SaveCompleteSnackbar.MessageQueue.Enqueue(message);
         }
 
         /// <summary>
@@ -50,6 +79,7 @@ namespace TeknoParrotUi
         /// <param name="e"></param>
         private void BtnAbout(object sender, RoutedEventArgs e)
         {
+            _about.UpdateVersions();
             contentControl.Content = _about;
         }
 
@@ -87,6 +117,52 @@ namespace TeknoParrotUi
             contentControl.Content = settings;
         }
 
+        StackPanel ConfirmExit()
+        {
+            var txt1 = new TextBlock
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.IsPatreon() ? (Lazydata.ParrotData.UiDarkMode ? "#FFFFFF" : "#303030") : "#303030")),
+                Margin = new Thickness(4),
+                TextWrapping = TextWrapping.WrapWithOverflow,
+                FontSize = 18,
+                Text = Properties.Resources.MainAreYouSure
+            };
+
+            var dck = new DockPanel();
+            dck.Children.Add(new Button()
+            {
+                Style = Application.Current.FindResource("MaterialDesignFlatButton") as Style,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.IsPatreon() ? (Lazydata.ParrotData.UiDarkMode ? "#FFFFFF" : "#303030") : "#303030")),
+                Width = 115,
+                Height = 30,
+                Margin = new Thickness(5),
+                Command = DialogHost.CloseDialogCommand,
+                CommandParameter = true,
+                Content = Properties.Resources.Yes
+            });
+            dck.Children.Add(new Button()
+            {
+                Style = Application.Current.FindResource("MaterialDesignFlatButton") as Style,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.IsPatreon() ? (Lazydata.ParrotData.UiDarkMode ? "#FFFFFF" : "#303030") : "#303030")),
+                Width = 115,
+                Height = 30,
+                Margin = new Thickness(5),
+                Command = DialogHost.CloseDialogCommand,
+                CommandParameter = false,
+                Content = Properties.Resources.No
+            });
+
+            var stk = new StackPanel
+            {
+                Width = 250,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.IsPatreon() ? (Lazydata.ParrotData.UiDarkMode ? "#303030" : "#FFFFFF") : "#FFFFFF"))
+            };
+            stk.Children.Add(txt1);
+            stk.Children.Add(dck);
+            return stk;
+        }
+
         /// <summary>
         /// If the window is being closed, prompts whether the user really wants to do that so it can safely shut down
         /// </summary>
@@ -105,47 +181,9 @@ namespace TeknoParrotUi
 
             if (Lazydata.ParrotData.ConfirmExit)
             {
-                var txt1 = new TextBlock
-                {
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFF53B3B")),
-                    Margin = new Thickness(4),
-                    TextWrapping = TextWrapping.WrapWithOverflow,
-                    FontSize = 18,
-                    Text = "Are you sure?"
-                };
-
-                var btn1 = new Button();
-                var style = Application.Current.FindResource("MaterialDesignFlatButton") as Style;
-                btn1.Style = style;
-                btn1.Width = 115;
-                btn1.Height = 30;
-                btn1.Margin = new Thickness(5);
-                btn1.Command = MaterialDesignThemes.Wpf.DialogHost.CloseDialogCommand;
-                btn1.CommandParameter = true;
-                btn1.Content = "Yes";
-
-                var btn2 = new Button();
-                var style2 = Application.Current.FindResource("MaterialDesignFlatButton") as Style;
-                btn2.Style = style2;
-                btn2.Width = 115;
-                btn2.Height = 30;
-                btn2.Margin = new Thickness(5);
-                btn2.Command = MaterialDesignThemes.Wpf.DialogHost.CloseDialogCommand;
-                btn2.CommandParameter = false;
-                btn2.Content = "No";
-
-                var dck = new DockPanel();
-                dck.Children.Add(btn1);
-                dck.Children.Add(btn2);
-
-                var stk = new StackPanel { Width = 250 };
-                stk.Children.Add(txt1);
-                stk.Children.Add(dck);
-
                 //Set flag indicating that the dialog is being shown
                 _showingDialog = true;
-                var result = await MaterialDesignThemes.Wpf.DialogHost.Show(stk);
+                var result = await DialogHost.Show(ConfirmExit());
                 _showingDialog = false;
                 //The result returned will come form the button's CommandParameter.
                 //If the user clicked "Yes" set the _AllowClose flag, and re-trigger the window Close.
@@ -165,61 +203,13 @@ namespace TeknoParrotUi
         private async void BtnQuit(object sender, RoutedEventArgs e)
         {
             //If the user has elected to allow the close, simply let the closing event happen.
-            if (_allowClose) return;
-
-            //NB: Because we are making an async call we need to cancel the closing event
-
-
-            //we are already showing the dialog, ignore
-            if (_showingDialog) return;
+            if (_allowClose || _showingDialog) return;
 
             if (Lazydata.ParrotData.ConfirmExit)
             {
-                var txt1 = new TextBlock
-                {
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFF53B3B")),
-                    Margin = new Thickness(4),
-                    TextWrapping = TextWrapping.WrapWithOverflow,
-                    FontSize = 18,
-                    Text = "Are you sure?"
-                };
-
-                var btn1 = new Button();
-                var style = Application.Current.FindResource("MaterialDesignFlatButton") as Style;
-                btn1.Style = style;
-                btn1.Width = 115;
-                btn1.Height = 30;
-                btn1.Margin = new Thickness(5);
-                btn1.Command = MaterialDesignThemes.Wpf.DialogHost.CloseDialogCommand;
-                btn1.CommandParameter = true;
-                btn1.Content = "Yes";
-
-                var btn2 = new Button();
-                var style2 = Application.Current.FindResource("MaterialDesignFlatButton") as Style;
-                btn2.Style = style2;
-                btn2.Width = 115;
-                btn2.Height = 30;
-                btn2.Margin = new Thickness(5);
-                btn2.Command = MaterialDesignThemes.Wpf.DialogHost.CloseDialogCommand;
-                btn2.CommandParameter = false;
-                btn2.Content = "No";
-
-
-                var dck = new DockPanel();
-                dck.Children.Add(btn1);
-                dck.Children.Add(btn2);
-
-                var stk = new StackPanel
-                {
-                    Width = 250
-                };
-                stk.Children.Add(txt1);
-                stk.Children.Add(dck);
-
                 //Set flag indicating that the dialog is being shown
                 _showingDialog = true;
-                var result = await MaterialDesignThemes.Wpf.DialogHost.Show(stk);
+                var result = await DialogHost.Show(ConfirmExit());
                 _showingDialog = false;
                 //The result returned will come form the button's CommandParameter.
                 //If the user clicked "Yes" set the _AllowClose flag, and re-trigger the window Close.
@@ -243,6 +233,32 @@ namespace TeknoParrotUi
             public bool opensource { get; set; } = true;
             // if set, the updater will extract the files into this folder rather than the name folder
             public string folderOverride { get; set; }
+            // if set, it will grab the update from a specific github user's account, if not set it'll use teknogods
+            public string userName { get; set; }
+            public string fullUrl { get { return "https://github.com/" + (!string.IsNullOrEmpty(userName) ? userName : "teknogods") + "/" + (!string.IsNullOrEmpty(reponame) ? reponame : name) + "/"; }
+            }
+            // local version number
+            public string _localVersion;
+            public string localVersion
+            {
+                get
+                {
+                    if (_localVersion == null)
+                    {
+                        if (File.Exists(location))
+                        {
+                            var fvi = FileVersionInfo.GetVersionInfo(location);
+                            var pv = fvi.ProductVersion;
+                            _localVersion = (fvi != null && pv != null) ? pv : "unknown";
+                        }
+                        else
+                        {
+                            _localVersion = Properties.Resources.UpdaterNotInstalled;
+                        }
+                    }
+                    return _localVersion;
+                }
+            }
         }
 
         public static List<UpdaterComponent> components = new List<UpdaterComponent>()
@@ -284,6 +300,26 @@ namespace TeknoParrotUi
                 opensource = false,
                 folderOverride = "N2"
             },
+            new UpdaterComponent
+            {
+                name = "SegaTools",
+                location = Path.Combine("SegaTools", "idzhook.dll"),
+                reponame = "SegaToolsTP",
+                folderOverride = "SegaTools",
+                userName = "nzgamer41"
+            },
+            new UpdaterComponent
+            {
+                name = "OpenSndGaelco",
+                location = Path.Combine("TeknoParrot", "OpenSndGaelco.dll"),
+                folderOverride = "TeknoParrot"
+            },
+            new UpdaterComponent
+            {
+                name = "OpenSndVoyager",
+                location = Path.Combine("TeknoParrot", "OpenSndVoyager.dll"),
+                folderOverride = "TeknoParrot"
+            },
         };
 
         async Task<GithubRelease> GetGithubRelease(UpdaterComponent component)
@@ -301,7 +337,7 @@ namespace TeknoParrotUi
                 //Github's API requires a user agent header, it'll 403 without it
                 client.DefaultRequestHeaders.Add("User-Agent", "TeknoParrot");
                 var reponame = !string.IsNullOrEmpty(component.reponame) ? component.reponame : component.name;
-                var url = $"https://api.github.com/repos/TeknoGods/{reponame}/releases/tags/{component.name}{secret}";
+                var url = $"https://api.github.com/repos/{(!string.IsNullOrEmpty(component.userName) ? component.userName : "teknogods")}/{reponame}/releases/tags/{component.name}{secret}";
                 Debug.WriteLine($"Updater url for {component.name}: {url}");
                 var response = await client.GetAsync(url);
                 if (response.IsSuccessStatusCode)
@@ -313,26 +349,25 @@ namespace TeknoParrotUi
             }
         }
 
-        public static string GetFileVersion(string fileName)
+        public int GetVersionNumber(string version)
         {
-            if (!File.Exists(fileName)) return string.Empty;
-            var fvi = FileVersionInfo.GetVersionInfo(fileName);
-            var pv = fvi.ProductVersion;
-            return (fvi != null && pv != null) ? pv : string.Empty;
+            var split = version.Split('.');
+            if (split.Length != 4 || string.IsNullOrEmpty(split[3]) || !int.TryParse(split[3], out var ver))
+            {
+                Debug.WriteLine($"{version} is formatted incorrectly!");
+                return 0;
+            }
+            return ver;
         }
 
         private async void CheckGithub(UpdaterComponent component)
         {
             try
             {
-                if (!File.Exists(component.location))
-                {
-                    Debug.WriteLine($"Base file {component.location} doesn't exist!!");
-                }
                 var githubRelease = await GetGithubRelease(component);
                 if (githubRelease != null)
                 {
-                    var localVersionString = GetFileVersion(component.location);
+                    var localVersionString = component.localVersion;
                     var onlineVersionString = githubRelease.name;
                     // fix for weird things like OpenParrotx64_1.0.0.30
                     if (onlineVersionString.Contains(component.name))
@@ -340,24 +375,32 @@ namespace TeknoParrotUi
                         onlineVersionString = onlineVersionString.Split('_')[1];
                     }
 
-                    bool fallback = false;
-                    var localSplit = localVersionString.Split('.');
-                    int localNumber = 0, onlineNumber = 0;
-                    if (localSplit.Length != 4 || string.IsNullOrEmpty(localSplit[3]) || !int.TryParse(localSplit[3], out localNumber))
+                    bool needsUpdate = false;
+                    // component not installed.
+                    if (localVersionString == Properties.Resources.UpdaterNotInstalled)
                     {
-                        Debug.WriteLine($"{component.name} local version number is formatted incorrectly! {localVersionString}");
-                        fallback = true;
+                        needsUpdate = true;
+                    }
+                    else
+                    {
+                        switch (localVersionString)
+                        {
+                            // version number is weird / unable to be formatted
+                            case "unknown":
+                                Debug.WriteLine($"{component.name} version is weird! local: {localVersionString} | online: {onlineVersionString}");
+                                needsUpdate = localVersionString != onlineVersionString;
+                                break;
+                            default:
+                                int localNumber = GetVersionNumber(localVersionString);
+                                int onlineNumber = GetVersionNumber(onlineVersionString);
+
+                                needsUpdate = localNumber < onlineNumber;
+                                break;
+                        }
                     }
 
-                    var onlineSplit = onlineVersionString.Split('.');
-                    if (onlineSplit.Length != 4 || string.IsNullOrEmpty(onlineSplit[3]) || !int.TryParse(onlineSplit[3], out onlineNumber))
-                    {
-                        Debug.WriteLine($"{component.name} online version number is formatted incorrectly! {onlineVersionString}");
-                        fallback = true;
-                    }
+                    Debug.WriteLine($"{component.name} - local: {localVersionString} | online: {onlineVersionString} | needs update? {needsUpdate}");
 
-                    Debug.WriteLine($"{component.name}: local: {localVersionString} | github: {onlineVersionString}");
-                    bool needsUpdate = fallback ? (localVersionString != onlineVersionString) : localNumber < onlineNumber;
                     if (needsUpdate)
                     {
                         new GitHubUpdates(component, githubRelease, localVersionString, onlineVersionString).Show();

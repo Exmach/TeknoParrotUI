@@ -36,5 +36,12 @@ namespace TeknoParrotUi.Common
         public int msysType { get; set; }
         public bool InvertedMouseAxis { get; set; }
         public bool DevOnly { get; set; }
+        public string ExecutableName { get; set; }
+        // advanced users only!
+        public string CustomArguments { get; set; }
+        public short xAxisMin { get; set; } = 0;
+        public short xAxisMax { get; set; } = 255;
+        public short yAxisMin { get; set; } = 0;
+        public short yAxisMax { get; set; } = 255;
     }
 }
